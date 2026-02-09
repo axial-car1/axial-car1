@@ -3,6 +3,7 @@ from tkinter import messagebox
 import ast
 import os
 import time
+import random
 from datetime import date
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -49,7 +50,13 @@ window = Tk()
 window.title("IntelliPlan")
 window.geometry("1200x700")
 window.configure(bg="#2e004e")
-window.resizable(False, False)
+window.state('zoomed')
+
+def toggle_fullscreen(event=None):
+    is_fullscreen = window.attributes('-fullscreen')
+    window.attributes('-fullscreen', not is_fullscreen)
+
+window.bind("<F11>", toggle_fullscreen)
 
 # Background shapes for futuristic look
 bg_canvas = Canvas(window, width=1200, height=700, bg="#2e004e", highlightthickness=0)
@@ -242,10 +249,21 @@ def open_app(username):
     header = Frame(main, bg="#f0f2f5", height=70)
     header.pack(fill=X)
 
+    datetime_label = Label(header, font=("Segoe UI", 18, "bold"), bg="#f0f2f5", fg="black")
+    datetime_label.pack(side=LEFT, padx=20, pady=20)
 
-    Label(header, text=f"👤 {username}",
-          font=("Segoe UI", 12),
-          bg="#f0f2f5").pack(side=RIGHT, padx=20, pady=20)
+    def update_clock():
+        now = time.strftime("%A, %B %d, %Y  |  %H:%M:%S")
+        datetime_label.config(text=now)
+        window.after(1000, update_clock)
+
+    update_clock()
+
+    profile_frame = Frame(header, bg="#f0f2f5")
+    profile_frame.pack(side=RIGHT, padx=20, pady=10)
+
+    Label(profile_frame, text=f"👤", font=("Segoe UI", 16), bg="#f0f2f5", fg="#2e004e").pack(side=LEFT)
+    Label(profile_frame, text=username, font=("Segoe UI", 12, "bold"), bg="#f0f2f5", fg="#333").pack(side=LEFT, padx=(5, 0))
 
 
     # CLEAR
@@ -259,28 +277,34 @@ def open_app(username):
     timer_running = False
     remaining = 0
     current_subject = ""
-    total_session_time = 0
+    studied_seconds = 0
 
     def tick():
-        nonlocal remaining, timer_running
+        nonlocal remaining, timer_running, studied_seconds
         if timer_running and remaining > 0:
             remaining -= 1
+            studied_seconds += 1
             if remaining == 0:
                 timer_running = False
                 save_session()
+                current_subject = ""
                 messagebox.showinfo("Timer", "Time is up! Session saved.")
         window.after(1000, tick)
 
     def save_session():
-        if current_subject and total_session_time > 0:
-            studied_min = (total_session_time - remaining) // 60
+        nonlocal studied_seconds
+        if current_subject and studied_seconds > 0:
+            studied_min = studied_seconds // 60
             if studied_min > 0:
+                # Merge if study log for same subject today exists in last entry
+                # actually just append as per user request to see history
                 user["study_log"].append({
                     "subject": current_subject,
                     "minutes": studied_min,
                     "date": str(date.today())
                 })
                 save_data(data)
+            studied_seconds = 0
 
     tick()
 
@@ -297,13 +321,25 @@ def open_app(username):
         # Draw blue gradient-like background on card
         draw_rounded_rect(header_card, 0, 0, 900, 200, 20, fill="#2e004e")
 
-        Label(header_card, text=f"Good Evening, {username}",
+        Label(header_card, text=f"Welcome Back, {username}! 👋",
               font=("Segoe UI", 32, "bold"),
               bg="#2e004e", fg="white").place(x=40, y=40)
 
-        Label(header_card, text=f"You have {len(user['subjects'])} subjects in your plan.",
+        Label(header_card, text=f"Ready to smash your goals? You have {len(user['subjects'])} subjects to focus on.",
               font=("Segoe UI", 14),
               bg="#2e004e", fg="#ddd").place(x=40, y=100)
+
+        # Mini Timer Widget
+        mini_timer = Canvas(header_card, width=120, height=120, bg="#2e004e", highlightthickness=0)
+        mini_timer.place(x=720, y=40)
+        draw_rounded_rect(mini_timer, 0, 0, 120, 120, 15, fill="#4b0082")
+        timer_icon = Label(mini_timer, text="⏱️", font=("Segoe UI", 30), bg="#4b0082", fg="white")
+        timer_icon.place(relx=0.5, rely=0.4, anchor=CENTER)
+        timer_text = Label(mini_timer, text="Study Now", font=("Segoe UI", 10, "bold"), bg="#4b0082", fg="white")
+        timer_text.place(relx=0.5, rely=0.8, anchor=CENTER)
+
+        for widget in [mini_timer, timer_icon, timer_text]:
+            widget.bind("<Button-1>", lambda e: study_timer())
 
         # Main Layout Container
         dash_container = Frame(main, bg="#f0f2f5")
@@ -314,32 +350,72 @@ def open_app(username):
         left_side.pack(side=LEFT, fill=BOTH, expand=True)
 
         # Today's Study Plan Card
-        plan_card = create_card(left_side, 430, 350)
+        plan_card = create_card(left_side, 430, 250)
         plan_card.pack(pady=10, padx=10)
-        Label(plan_card, text="Today's Study Plan", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").place(x=20, y=20)
+        Label(plan_card, text="Today's Study Plan", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").place(x=20, y=10)
 
         today = date.today().strftime("%a")
-        subjects = user.get("timetable", {}).get(today, [])
+        subjects_data = user.get("timetable", {}).get(today, [])
 
-        if not subjects:
-            Label(plan_card, text="No subjects scheduled for today", bg="white", font=("Segoe UI", 11)).place(x=20, y=60)
+        def is_completed(s_name):
+            today_str = str(date.today())
+            for entry in user["study_log"]:
+                if entry["date"] == today_str and entry["subject"] == s_name:
+                    return True
+            return False
+
+        if not subjects_data:
+            Label(plan_card, text="No subjects scheduled for today", bg="white", font=("Segoe UI", 11)).place(x=20, y=50)
         else:
-            try:
-                sh, sm = map(int, user["start_time"].split(":"))
-                total_min = int(user["daily_minutes"])
-                per_subject = total_min // len(subjects)
-                curr_h, curr_m = sh, sm
-                y_pos = 60
-                for s in subjects:
-                    end_m = curr_m + per_subject
-                    end_h = curr_h + (end_m // 60)
-                    end_m %= 60
-                    Label(plan_card, text=f"• {s}: {curr_h:02}:{curr_m:02} - {end_h:02}:{end_m:02}",
-                          bg="white", font=("Segoe UI", 11), anchor="w").place(x=20, y=y_pos)
-                    curr_h, curr_m = end_h, end_m
-                    y_pos += 25
-            except:
-                Label(plan_card, text="Complete your plan to see the schedule", bg="white").place(x=20, y=60)
+            y_pos = 50
+            for s_entry in subjects_data:
+                if isinstance(s_entry, dict):
+                    subj = s_entry['subject']
+                    start = s_entry['start']
+                    end = s_entry['end']
+                    # Calc duration
+                    try:
+                        sh, sm = map(int, start.split(":"))
+                        eh, em = map(int, end.split(":"))
+                        dur = (eh*60+em) - (sh*60+sm)
+                        if dur <= 0: dur = 30 # default
+                    except: dur = 30
+
+                    text = f"• {subj}: {start}-{end}"
+                else:
+                    subj = str(s_entry)
+                    dur = 30
+                    text = f"• {subj}"
+
+                status_icon = "✅" if is_completed(subj) else "⏳"
+                status_text = "Completed" if is_completed(subj) else "Pending"
+
+                lbl = Label(plan_card, text=f"{text}", bg="white", font=("Segoe UI", 10), anchor="w", cursor="hand2")
+                lbl.place(x=20, y=y_pos)
+
+                stat_lbl = Label(plan_card, text=f"{status_icon} {status_text}", bg="white", font=("Segoe UI", 9), fg="#666")
+                stat_lbl.place(x=250, y=y_pos)
+
+                def make_go(s=subj, d=dur): return lambda e: study_timer(s, d)
+                lbl.bind("<Button-1>", make_go(subj, dur))
+                stat_lbl.bind("<Button-1>", make_go(subj, dur))
+
+                y_pos += 25
+
+        # Progress Summary Widget (Bottom Half)
+        progress_card = create_card(left_side, 430, 180)
+        progress_card.pack(pady=10, padx=10)
+        Label(progress_card, text="Progress Summary", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").place(x=20, y=10)
+
+        Label(progress_card, text=f"🔥 Current Streak: {user['streak']} Days", font=("Segoe UI", 11), bg="white").place(x=20, y=45)
+
+        Label(progress_card, text="Recent Study Sessions:", font=("Segoe UI", 10, "bold"), bg="white", fg="#555").place(x=20, y=75)
+        y_hist = 100
+        for entry in user["study_log"][-3:]:
+             Label(progress_card, text=f"• {entry['subject']} ({entry['minutes']}m)", font=("Segoe UI", 9), bg="white").place(x=20, y=y_hist)
+             y_hist += 22
+        if not user["study_log"]:
+             Label(progress_card, text="No history yet.", font=("Segoe UI", 9), bg="white", fg="#999").place(x=20, y=100)
 
         # RIGHT SIDE: Pie Chart
         right_side = Frame(dash_container, bg="#f0f2f5")
@@ -370,12 +446,84 @@ def open_app(username):
     # =====================================================
     # EDIT PLAN
     # =====================================================
+    def show_timetable():
+        container = Frame(main, bg="#f0f2f5")
+        container.pack(fill=BOTH, expand=True, padx=20, pady=10)
+
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        header_f = Frame(container, bg="#2e004e")
+        header_f.pack(fill=X)
+
+        Label(header_f, text="Time Slot", font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=18).pack(side=LEFT, padx=1, pady=10)
+        for d in days:
+            Label(header_f, text=d, font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=14).pack(side=LEFT, padx=1, pady=10)
+
+        canvas = Canvas(container, bg="#f0f2f5", highlightthickness=0)
+        scroll_y = Scrollbar(container, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas, bg="#f0f2f5")
+
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0,0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scroll_y.set)
+
+        canvas.pack(side=LEFT, fill=BOTH, expand=True)
+        scroll_y.pack(side=RIGHT, fill=Y)
+
+        max_subjs = 0
+        for d in days:
+            max_subjs = max(max_subjs, len(user["timetable"].get(d, [])))
+
+        colors = ["#4a90e2", "#50e3c2", "#b8e986", "#f8e71c", "#f5a623", "#9013fe", "#bd10e0"]
+
+        for i in range(max_subjs):
+            row_f = Frame(scrollable_frame, bg="#f0f2f5")
+            row_f.pack(fill=X)
+
+            # Find which day has the slot i to get the time (assuming same slots for all days if they exist)
+            time_str = ""
+            for d in days:
+                sched = user["timetable"].get(d, [])
+                if i < len(sched):
+                    if isinstance(sched[i], dict):
+                        time_str = f"{sched[i]['start']}\n-\n{sched[i]['end']}"
+                        break
+
+            if not time_str: time_str = "---"
+
+            Label(row_f, text=time_str, font=("Segoe UI", 11), bg="white", width=18, relief=GROOVE, height=5).pack(side=LEFT, padx=1, pady=1)
+
+            for d in days:
+                sched = user["timetable"].get(d, [])
+                if i < len(sched):
+                    item = sched[i]
+                    if isinstance(item, dict):
+                        bg = "#f44336" if item["is_hardest"] else colors[i % len(colors)]
+                        txt = item["subject"]
+                    else:
+                        bg = colors[i % len(colors)]
+                        txt = str(item)
+                    lbl = Label(row_f, text=txt, font=("Segoe UI", 11, "bold"), bg=bg, fg="white", width=14, height=5, relief=RAISED, wraplength=100)
+                    lbl.pack(side=LEFT, padx=1, pady=1)
+                else:
+                    Label(row_f, text="", bg="#f0f2f5", width=14, height=5).pack(side=LEFT, padx=1, pady=1)
+
+        def modify():
+            user["timetable"] = {}
+            save_data(data)
+            edit_plan()
+
+        Button(main, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10).pack(pady=10)
+
     def edit_plan():
         clear()
 
         Label(main, text="Edit Study Plan",
               font=("Segoe UI", 36, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=15)
+
+        if user["timetable"]:
+            show_timetable()
+            return
 
         card_canvas = create_card(main, 600, 580)
         card_canvas.pack(pady=10)
@@ -424,26 +572,59 @@ def open_app(username):
 
 
             def generate():
-                user["subjects"] = [e.get() for e in subject_entries]
+                user["subjects"] = [e.get() for e in subject_entries if e.get() != f"Subject {subject_entries.index(e)+1}"]
                 user["hardest"] = hardest.get()
-                user["daily_minutes"] = int(minutes.get())
+                try:
+                    user["daily_minutes"] = int(minutes.get())
+                except:
+                    messagebox.showerror("Error", "Invalid minutes")
+                    return
                 user["start_time"] = start.get()
 
-
-                days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+                days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                 timetable = {}
 
-
                 for d in days:
-                    order = user["subjects"].copy()
-                    if user["hardest"] in order:
-                        order.insert(0, user["hardest"])
-                    timetable[d] = order
+                    subjects = user["subjects"].copy()
+                    random.shuffle(subjects)
+                    if not subjects: continue
 
+                    weights = {}
+                    total_weight = 0
+                    for s in subjects:
+                        w = 2 if s == user["hardest"] else 1
+                        weights[s] = w
+                        total_weight += w
+
+                    try:
+                        start_h, start_m = map(int, user["start_time"].split(":"))
+                    except:
+                        messagebox.showerror("Error", "Invalid start time format (HH:MM)")
+                        return
+                    curr_time_m = start_h * 60 + start_m
+
+                    day_schedule = []
+                    for s in subjects:
+                        duration = int((weights[s] / total_weight) * user["daily_minutes"])
+                        end_time_m = curr_time_m + duration
+
+                        sh, sm = divmod(curr_time_m, 60)
+                        eh, em = divmod(end_time_m, 60)
+
+                        day_schedule.append({
+                            "subject": s,
+                            "start": f"{sh%24:02}:{sm:02}",
+                            "end": f"{eh%24:02}:{em:02}",
+                            "is_hardest": (s == user["hardest"])
+                        })
+                        curr_time_m = end_time_m
+
+                    timetable[d] = day_schedule
 
                 user["timetable"] = timetable
                 save_data(data)
                 messagebox.showinfo("Saved", "Timetable generated")
+                edit_plan()
 
 
             Button(subjects_frame, text="Generate Timetable",
@@ -461,143 +642,147 @@ def open_app(username):
     # =====================================================
     # CRAM MODE
     # =====================================================
-    def view_flashcards(subj):
-        pop = Toplevel(window)
-        pop.geometry("600x700")
-        pop.title(f"Flashcards: {subj}")
-        pop.configure(bg="#f0f2f5")
+    def open_flashcard_viewer(card_list, start_idx):
+        viewer = Toplevel(window)
+        viewer.geometry("600x450")
+        viewer.title("Flashcard Viewer")
+        viewer.configure(bg="white")
 
-        card_list = user["flashcards"].get(subj, [])
-        if not card_list:
-            Label(pop, text="No cards here!", bg="#f0f2f5").pack(pady=20)
-            return
-
-        idx = 0
+        current_list = card_list.copy()
+        idx = start_idx
         showing_q = True
 
-        flip_frame = Frame(pop, bg="white", width=450, height=200, bd=1, relief=GROOVE)
-        flip_frame.pack(pady=30)
-        flip_frame.pack_propagate(False)
+        card_frame = Frame(viewer, bg="#f0f7ff", width=500, height=250, bd=1, relief=RAISED)
+        card_frame.pack(pady=40)
+        card_frame.pack_propagate(False)
 
-        content_label = Label(flip_frame, text=card_list[idx]['q'], font=("Segoe UI", 16), bg="white", wraplength=400)
-        content_label.pack(expand=True)
+        q_num_label = Label(viewer, text="", font=("Segoe UI", 12, "bold"), bg="white", fg="#2e004e")
+        q_num_label.pack()
+
+        content = Label(card_frame, text="", font=("Segoe UI", 18), bg="#f0f7ff", wraplength=450)
+        content.pack(expand=True)
+
+        def update_view():
+            q_num_label.config(text=f"Question {idx+1} of {len(current_list)}")
+            content.config(text=current_list[idx]['q'] if showing_q else current_list[idx]['a'])
+            content.config(fg="black" if showing_q else "#2e004e")
 
         def flip():
             nonlocal showing_q
             showing_q = not showing_q
-            content_label.config(text=card_list[idx]['q'] if showing_q else card_list[idx]['a'])
-            content_label.config(fg="black" if showing_q else "#4a90e2")
+            update_view()
 
-        def next_card():
+        def next_c():
             nonlocal idx, showing_q
-            idx = (idx + 1) % len(card_list)
+            idx = (idx + 1) % len(current_list)
             showing_q = True
-            content_label.config(text=card_list[idx]['q'], fg="black")
-            update_list_highlight()
+            update_view()
 
-        btn_box = Frame(pop, bg="#f0f2f5")
+        def shuffle_cards():
+            nonlocal idx, showing_q
+            random.shuffle(current_list)
+            idx = 0
+            showing_q = True
+            update_view()
+
+        btn_box = Frame(viewer, bg="white")
         btn_box.pack()
 
-        Button(btn_box, text="🔄 Flip", command=flip, bg="#4a90e2", fg="white", bd=0, width=12, font=("Segoe UI", 11)).pack(side=LEFT, padx=10)
-        Button(btn_box, text="Next →", command=next_card, bg="#aaa", fg="white", bd=0, width=12, font=("Segoe UI", 11)).pack(side=LEFT, padx=10)
+        Button(btn_box, text="🔄 Flip", command=flip, bg="#2e004e", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
+        Button(btn_box, text="Next →", command=next_c, bg="#aaa", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
+        Button(btn_box, text="🔀 Shuffle", command=shuffle_cards, bg="#6a0dad", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
 
-        Label(pop, text="Card List", font=("Segoe UI", 14, "bold"), bg="#f0f2f5").pack(pady=(30, 10))
-
-        list_container = Frame(pop, bg="white")
-        list_container.pack(fill=BOTH, expand=True, padx=20, pady=20)
-
-        canvas = Canvas(list_container, bg="white", highlightthickness=0)
-        scrollbar = Scrollbar(list_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = Frame(canvas, bg="white")
-
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=540)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        items = []
-        def update_list_highlight():
-            for i, (f, ql, al) in enumerate(items):
-                bg = "#f0f7ff" if i == idx else "white"
-                f.config(bg=bg)
-                ql.config(bg=bg)
-                al.config(bg=bg)
-
-        for i, card in enumerate(card_list):
-            f = Frame(scrollable_frame, bg="white", pady=10, padx=10)
-            f.pack(fill=X)
-            ql = Label(f, text=f"Question {i+1}: {card['q']}", font=("Segoe UI", 11, "bold"), bg="white", anchor="w", wraplength=500, justify=LEFT)
-            ql.pack(fill=X)
-            al = Label(f, text=f"Answer: {card['a']}", font=("Segoe UI", 11), bg="white", anchor="w", fg="#555", wraplength=500, justify=LEFT)
-            al.pack(fill=X)
-            items.append((f, ql, al))
-            Frame(scrollable_frame, height=1, bg="#eee").pack(fill=X)
-
-        update_list_highlight()
+        update_view()
 
     def cram_mode():
         clear()
 
-        Label(main, text="Cram Mode",
-              font=("Segoe UI", 36, "bold"),
-              bg="#f0f2f5", fg="#2e004e").pack(pady=15)
+        Label(main, text="Cram Mode", font=("Segoe UI", 32, "bold"), bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
-        cards_frame = Frame(main, bg="#f0f2f5")
-        cards_frame.pack(pady=20)
+        cram_container = Frame(main, bg="#f0f2f5")
+        cram_container.pack(fill=BOTH, expand=True, padx=20, pady=10)
 
-        def add_card():
-            pop = Toplevel(window)
-            pop.geometry("400x300")
-            pop.title("New Flashcard")
+        # Left side: Flashcard List
+        left_side = Frame(cram_container, bg="#f0f2f5")
+        left_side.pack(side=LEFT, fill=BOTH, expand=True, padx=(0, 10))
 
+        Label(left_side, text="Flashcards", font=("Segoe UI", 18, "bold"), bg="#f0f2f5", fg="#2e004e").pack(anchor="w", pady=(0, 10))
 
-            s = Entry(pop)
-            s.pack(pady=10)
-            placeholder(s, "Subject")
+        list_card = create_card(left_side, 400, 500)
+        list_card.pack(fill=BOTH, expand=True)
 
+        list_canvas = Canvas(list_card, bg="white", highlightthickness=0)
+        list_scroll = Scrollbar(list_card, orient="vertical", command=list_canvas.yview)
+        list_frame = Frame(list_canvas, bg="white")
 
-            q = Entry(pop)
-            q.pack(pady=10)
-            placeholder(q, "Question")
+        list_frame.bind("<Configure>", lambda e: list_canvas.configure(scrollregion=list_canvas.bbox("all")))
+        list_canvas.create_window((0,0), window=list_frame, anchor="nw", width=500)
+        list_canvas.configure(yscrollcommand=list_scroll.set)
 
+        list_canvas.pack(side=LEFT, fill=BOTH, expand=True, padx=5, pady=5)
+        list_scroll.pack(side=RIGHT, fill=Y)
 
-            a = Entry(pop)
-            a.pack(pady=10)
-            placeholder(a, "Answer")
+        # Populate list
+        for subj, cards in user["flashcards"].items():
+            f_subj = Frame(list_frame, bg="#eee")
+            f_subj.pack(fill=X, pady=(10, 0))
+            Label(f_subj, text=subj, font=("Segoe UI", 12, "bold"), bg="#eee", anchor="w", padx=10).pack(side=LEFT)
 
-
-            def save():
-                subj = s.get()
-                user["flashcards"].setdefault(subj, [])
-                user["flashcards"][subj].append({"q": q.get(), "a": a.get()})
+            def shuffle_subj(s=subj):
+                random.shuffle(user["flashcards"][s])
                 save_data(data)
-                pop.destroy()
                 cram_mode()
 
+            Button(f_subj, text="🔀", command=shuffle_subj, bg="#eee", bd=0, font=("Segoe UI", 10)).pack(side=RIGHT, padx=5)
 
-            Button(pop, text="Save",
-                   bg="#2e004e", fg="white",
-                   bd=0, font=("Segoe UI", 11, "bold"),
-                   padx=20, command=save).pack(pady=10)
+            for i, card in enumerate(cards):
+                btn = Button(list_frame, text=f"Q{i+1}: {card['q']}", font=("Segoe UI", 10), bg="white", anchor="w", bd=0, padx=20, pady=5,
+                             command=lambda s=subj, idx=i: open_flashcard_viewer(user["flashcards"][s], idx))
+                btn.pack(fill=X)
+                btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#f0f7ff"))
+                btn.bind("<Leave>", lambda e, b=btn: b.config(bg="white"))
 
-        for subj, cards_list in user["flashcards"].items():
-            Button(cards_frame, text=f"{subj} ({len(cards_list)})",
-                   width=40, pady=10, bd=0, font=("Segoe UI", 12),
-                   bg="white", command=lambda s=subj: view_flashcards(s)).pack(pady=10)
+        # Right side: Add Flashcard Form
+        right_side = Frame(cram_container, bg="#f0f2f5", width=350)
+        right_side.pack(side=RIGHT, fill=Y, padx=(10, 0))
+        right_side.pack_propagate(False)
 
-        Button(main, text="+",
-               font=("Segoe UI", 24, "bold"),
-               bg="#2e004e", fg="white",
-               bd=0, width=3,
-               command=add_card).place(relx=0.9, rely=0.85, anchor=CENTER)
+        add_card_ui = create_card(right_side, 330, 500)
+        add_card_ui.pack(fill=BOTH, expand=True)
+
+        Label(add_card_ui, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=20)
+
+        s_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        s_entry.pack(pady=10, padx=20, fill=X)
+        placeholder(s_entry, "Subject")
+
+        q_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        q_entry.pack(pady=10, padx=20, fill=X)
+        placeholder(q_entry, "Question")
+
+        a_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        a_entry.pack(pady=10, padx=20, fill=X)
+        placeholder(a_entry, "Answer")
+
+        def save_new_card():
+            subj = s_entry.get()
+            q = q_entry.get()
+            a = a_entry.get()
+            if subj == "Subject" or q == "Question" or a == "Answer" or not subj or not q or not a:
+                messagebox.showerror("Error", "Please fill all fields")
+                return
+            user["flashcards"].setdefault(subj, [])
+            user["flashcards"][subj].append({"q": q, "a": a})
+            save_data(data)
+            cram_mode() # Refresh
+
+        Button(add_card_ui, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=10).pack(pady=30, padx=20, fill=X)
 
 
     # =====================================================
     # STUDY TIMER
     # =====================================================
-    def study_timer():
+    def study_timer(pre_subj=None, pre_mins=None):
         nonlocal timer_running, remaining
         clear()
 
@@ -610,11 +795,17 @@ def open_app(username):
 
         subject = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
         subject.place(x=150, y=40, width=300, height=35)
-        placeholder(subject, "Subject")
+        if pre_subj:
+            subject.insert(0, pre_subj)
+        else:
+            placeholder(subject, "Subject")
 
         minutes = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
         minutes.place(x=150, y=90, width=300, height=35)
-        placeholder(minutes, "Minutes")
+        if pre_mins:
+            minutes.insert(0, str(pre_mins))
+        else:
+            placeholder(minutes, "Minutes")
 
         timer_label = Label(card, text="00:00",
                             font=("Segoe UI", 64, "bold"),
@@ -628,29 +819,53 @@ def open_app(username):
         update_timer_ui()
 
         def start():
-            nonlocal remaining, timer_running, current_subject, total_session_time
-            try:
-                remaining = int(minutes.get()) * 60
-                total_session_time = remaining
-                current_subject = subject.get()
-                if current_subject == "Subject" or not current_subject:
+            nonlocal remaining, timer_running, current_subject, studied_seconds
+            if timer_running: return
+
+            # Ensure we have a subject name
+            if not current_subject:
+                subj = subject.get()
+                if subj == "Subject" or not subj:
                     messagebox.showerror("Error", "Please enter a subject")
                     return
-                timer_running = True
-            except:
-                messagebox.showerror("Error", "Enter valid minutes")
+                current_subject = subj
+
+            # If no remaining time, load from entries
+            if remaining <= 0:
+                try:
+                    remaining = int(minutes.get()) * 60
+                    studied_seconds = 0
+                except:
+                    messagebox.showerror("Error", "Enter valid minutes")
+                    current_subject = ""
+                    return
+            timer_running = True
 
         def pause():
             nonlocal timer_running
             timer_running = False
 
         def stop():
-            nonlocal timer_running, remaining
+            nonlocal timer_running, remaining, current_subject
             if timer_running or remaining > 0:
                 timer_running = False
                 save_session()
                 remaining = 0
+                current_subject = ""
                 messagebox.showinfo("Timer", "Session stopped and saved.")
+
+        # Add Time Buttons
+        add_btn_frame = Frame(card, bg="white")
+        add_btn_frame.place(relx=0.5, y=140, anchor=CENTER)
+
+        def inc_time(m):
+            nonlocal remaining
+            remaining += m * 60
+
+        Button(add_btn_frame, text="+5 Min", command=lambda: inc_time(5), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+10 Min", command=lambda: inc_time(10), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+30 Min", command=lambda: inc_time(30), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+1 Hour", command=lambda: inc_time(60), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
 
         btn_frame = Frame(card, bg="white")
         btn_frame.place(relx=0.5, y=350, anchor=CENTER)
@@ -693,15 +908,27 @@ def open_app(username):
         # Study History Card
         history_card = create_card(left_side, 450, 250)
         history_card.pack(pady=10, padx=10)
-        Label(history_card, text="Recent Study Sessions", font=("Segoe UI", 14, "bold"), bg="white", fg="#2e004e").place(x=20, y=15)
+        Label(history_card, text="Full Study History", font=("Segoe UI", 14, "bold"), bg="white", fg="#2e004e").place(x=20, y=15)
 
-        y_pos = 50
-        for entry in user["study_log"][-5:]: # Show last 5
-            Label(history_card, text=f"• {entry['date']}: {entry['subject']} ({entry['minutes']}m)",
-                  bg="white", font=("Segoe UI", 10)).place(x=20, y=y_pos)
-            y_pos += 25
+        hist_canvas = Canvas(history_card, bg="white", highlightthickness=0)
+        hist_scroll = Scrollbar(history_card, orient="vertical", command=hist_canvas.yview)
+        hist_frame = Frame(hist_canvas, bg="white")
+
+        hist_frame.bind("<Configure>", lambda e: hist_canvas.configure(scrollregion=hist_canvas.bbox("all")))
+        hist_canvas.create_window((0,0), window=hist_frame, anchor="nw", width=400)
+        hist_canvas.configure(yscrollcommand=hist_scroll.set)
+
+        hist_canvas.place(x=20, y=50, width=410, height=180)
+        hist_scroll.place(x=430, y=50, height=180)
+
         if not user["study_log"]:
-            Label(history_card, text="No sessions recorded yet.", bg="white").place(x=20, y=50)
+            Label(hist_frame, text="No sessions recorded yet.", bg="white").pack(pady=20)
+        else:
+            for entry in reversed(user["study_log"]):
+                f = Frame(hist_frame, bg="white")
+                f.pack(fill=X, pady=2)
+                Label(f, text=f"• {entry['date']}: {entry['subject']} ({entry['minutes']}m)",
+                      bg="white", font=("Segoe UI", 10)).pack(side=LEFT)
 
         # Bar Chart Card (Study time per day)
         bar_card = create_card(left_side, 450, 250)
@@ -755,7 +982,7 @@ def open_app(username):
     # SIDEBAR
     # =====================================================
     def logout():
-        messagebox.showinfo("Goodbye", "Thank you for using IntelliPlan :;)")
+        messagebox.showinfo("Goodbye", ":)")
         window.destroy()
 
 
@@ -785,7 +1012,7 @@ def open_app(username):
     nav("🏠", "Dashboard", dashboard)
     nav("📅", "Edit Plan", edit_plan)
     nav("📚", "Cram Mode", cram_mode)
-    nav("⏱️", "Study Timer", study_timer)
+    nav("⏱️", "Study Timer", lambda: study_timer())
     nav("📈", "Progress", progress)
 
 
