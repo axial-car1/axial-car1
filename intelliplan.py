@@ -870,18 +870,22 @@ def open_app(username):
         add_card_ui = create_card(right_side, 380, 550)
         add_card_ui.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
-        Label(add_card_ui, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=(30, 20))
+        # Use a Frame inside Canvas to host form elements safely
+        form_frame = Frame(add_card_ui, bg="white")
+        add_card_ui.create_window(190, 275, window=form_frame, width=340, height=500)
 
-        s_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        s_entry.pack(pady=15, padx=30, fill=X, ipady=8)
+        Label(form_frame, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=(20, 20))
+
+        s_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        s_entry.pack(pady=10, padx=10, fill=X, ipady=8)
         placeholder(s_entry, "Subject")
 
-        q_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        q_entry.pack(pady=15, padx=30, fill=X, ipady=8)
+        q_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        q_entry.pack(pady=10, padx=10, fill=X, ipady=8)
         placeholder(q_entry, "Question")
 
-        a_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        a_entry.pack(pady=15, padx=30, fill=X, ipady=8)
+        a_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        a_entry.pack(pady=10, padx=10, fill=X, ipady=8)
         placeholder(a_entry, "Answer")
 
         def save_new_card():
@@ -896,7 +900,7 @@ def open_app(username):
             save_data(data)
             cram_mode() # Refresh
 
-        Button(add_card_ui, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=12, cursor="hand2").pack(pady=40, padx=30, fill=X)
+        Button(form_frame, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=12, cursor="hand2").pack(pady=30, padx=10, fill=X)
 
 
     # =====================================================
