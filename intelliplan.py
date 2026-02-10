@@ -71,12 +71,16 @@ bg_canvas = Canvas(window, bg="#2e004e", highlightthickness=0)
 bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
 
 def update_bg(event=None):
-    bg_canvas.delete("all")
-    w = window.winfo_width()
-    h = window.winfo_height()
-    bg_canvas.create_oval(-100, -100, 400, 400, fill="#3d0066", outline="")
-    bg_canvas.create_oval(w-300, h-300, w+100, h+100, fill="#3d0066", outline="")
-    bg_canvas.create_oval(w-200, -50, w-50, 100, fill="#4b0082", outline="")
+    try:
+        if bg_canvas.winfo_exists():
+            bg_canvas.delete("all")
+            w = window.winfo_width()
+            h = window.winfo_height()
+            bg_canvas.create_oval(-100, -100, 400, 400, fill="#3d0066", outline="")
+            bg_canvas.create_oval(w-300, h-300, w+100, h+100, fill="#3d0066", outline="")
+            bg_canvas.create_oval(w-200, -50, w-50, 100, fill="#4b0082", outline="")
+    except:
+        pass
 
 window.bind("<Configure>", update_bg)
 
@@ -274,12 +278,13 @@ def open_app(username):
 
     update_clock()
 
-    profile_canvas = Canvas(header, width=180, height=50, bg="#f0f2f5", highlightthickness=0)
-    profile_canvas.pack(side=RIGHT, padx=20, pady=10)
-    draw_rounded_rect(profile_canvas, 0, 0, 180, 50, 25, fill="white")
+    profile_card = Canvas(header, width=200, height=50, bg="#f0f2f5", highlightthickness=0)
+    profile_card.pack(side=RIGHT, padx=20, pady=10)
+    draw_rounded_rect(profile_card, 0, 0, 200, 50, 25, fill="white")
 
-    profile_canvas.create_text(30, 25, text="👤", font=("Segoe UI", 16), fill="#2e004e")
-    profile_canvas.create_text(100, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#333")
+    profile_card.create_text(35, 25, text="👤", font=("Segoe UI", 18), fill="#2e004e")
+    profile_card.create_line(65, 15, 65, 35, fill="#eee")
+    profile_card.create_text(125, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#555")
 
 
     current_view = "dashboard"
@@ -316,21 +321,25 @@ def open_app(username):
         nonlocal studied_seconds
         if current_subject and studied_seconds > 0:
             studied_min = studied_seconds // 60
-            if studied_min > 0:
-                # Merge if study log for same subject today exists in last entry
-                # actually just append as per user request to see history
-                user["study_log"].append({
-                    "subject": current_subject,
-                    "minutes": studied_min,
-                    "date": str(date.today())
-                })
-                save_data(data)
-                # Auto refresh view
-                if current_view == "dashboard":
-                    dashboard()
-                elif current_view == "progress":
-                    progress()
+            # Ensure at least 1 minute is logged if study happened
+            if studied_min == 0:
+                studied_min = 1
+
+            user["study_log"].append({
+                "subject": current_subject,
+                "minutes": studied_min,
+                "date": str(date.today())
+            })
+            save_data(data)
+            # Auto refresh view
+            if current_view == "dashboard":
+                dashboard()
+            elif current_view == "progress":
+                progress()
             studied_seconds = 0
+            return True
+        studied_seconds = 0
+        return False
 
     tick()
 
@@ -462,7 +471,7 @@ def open_app(username):
 
             fig = Figure(figsize=(4, 3), dpi=80)
             ax = fig.add_subplot(111)
-            ax.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#2e004e", "#4b0082", "#6a0dad", "#9370db", "#ba55d3"])
+            ax.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#5d3fd3", "#7b68ee", "#9370db", "#ba55d3", "#e0b0ff"])
             ax.axis('equal')
 
             canvas = FigureCanvasTkAgg(fig, master=chart_container)
@@ -493,9 +502,9 @@ def open_app(username):
         scroll_y.pack(side=RIGHT, fill=Y)
 
         # Header Row
-        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=20, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=15, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         for j, d in enumerate(days):
-            Label(scrollable_frame, text=d, font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=16, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=d, font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=12, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
 
         max_subjs = 0
         for d in days:
@@ -513,7 +522,7 @@ def open_app(username):
                         break
             if not time_str: time_str = "---"
 
-            Label(scrollable_frame, text=time_str, font=("Segoe UI", 11), bg="white", width=20, height=5, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=time_str, font=("Segoe UI", 10), bg="white", width=15, height=4, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
 
             for j, d in enumerate(days):
                 sched = user["timetable"].get(d, [])
@@ -525,9 +534,9 @@ def open_app(username):
                     else:
                         bg = colors[i % len(colors)]
                         txt = str(item)
-                    Label(scrollable_frame, text=txt, font=("Segoe UI", 11, "bold"), bg=bg, fg="white", width=16, height=5, bd=0, wraplength=120).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text=txt, font=("Segoe UI", 10, "bold"), bg=bg, fg="white", width=12, height=4, bd=0, wraplength=100).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
                 else:
-                    Label(scrollable_frame, text="", bg="#e0e0e0", width=16, height=5, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text="", bg="#e0e0e0", width=12, height=4, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
 
         def modify():
             user["timetable"] = {}
@@ -539,9 +548,9 @@ def open_app(username):
     def edit_plan():
         clear("edit_plan")
 
-        Label(main, text="Edit Study Plan",
-              font=("Segoe UI", 36, "bold"),
-              bg="#f0f2f5", fg="#2e004e").pack(pady=15)
+        Label(main, text="Study Plan",
+              font=("Segoe UI", 32, "bold"),
+              bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
         if user["timetable"]:
             show_timetable()
@@ -758,11 +767,36 @@ def open_app(username):
             Button(f_subj, text="🔀", command=shuffle_subj, bg="#eee", bd=0, font=("Segoe UI", 10)).pack(side=RIGHT, padx=5)
 
             for i, card in enumerate(cards):
-                btn = Button(list_frame, text=f"Q{i+1}: {card['q']}", font=("Segoe UI", 10), bg="white", anchor="w", bd=0, padx=20, pady=5,
+                item_frame = Frame(list_frame, bg="white")
+                item_frame.pack(fill=X)
+
+                btn = Button(item_frame, text=f"Q{i+1}: {card['q']}", font=("Segoe UI", 10), bg="white", anchor="w", bd=0, padx=20, pady=5, cursor="hand2",
                              command=lambda s=subj, idx=i: open_flashcard_viewer(user["flashcards"][s], idx))
-                btn.pack(fill=X)
-                btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#f0f7ff"))
-                btn.bind("<Leave>", lambda e, b=btn: b.config(bg="white"))
+                btn.pack(side=LEFT, fill=X, expand=True)
+
+                def delete_card(s=subj, idx=i):
+                    if messagebox.askyesno("Delete", "Are you sure you want to delete this flashcard?"):
+                        user["flashcards"][s].pop(idx)
+                        if not user["flashcards"][s]:
+                            del user["flashcards"][s]
+                        save_data(data)
+                        cram_mode()
+
+                del_btn = Button(item_frame, text="🗑️", font=("Segoe UI", 10), bg="white", fg="#f44336", bd=0, cursor="hand2", command=delete_card)
+                del_btn.pack(side=RIGHT, padx=10)
+
+                def on_ent(e, f=item_frame, b=btn, d=del_btn):
+                    f.config(bg="#f0f7ff")
+                    b.config(bg="#f0f7ff")
+                    d.config(bg="#f0f7ff")
+                def on_lev(e, f=item_frame, b=btn, d=del_btn):
+                    f.config(bg="white")
+                    b.config(bg="white")
+                    d.config(bg="white")
+
+                for w in [item_frame, btn, del_btn]:
+                    w.bind("<Enter>", on_ent)
+                    w.bind("<Leave>", on_lev)
 
         # Right side: Add Flashcard Form
         right_side = Frame(cram_container, bg="#f0f2f5", width=350)
@@ -812,7 +846,7 @@ def open_app(username):
               font=("Segoe UI", 36, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=15)
 
-        card = create_card(main, 600, 450)
+        card = create_card(main, 600, 480)
         card.pack(pady=10)
 
         subject = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
@@ -822,21 +856,34 @@ def open_app(username):
         else:
             placeholder(subject, "Subject")
 
-        minutes = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        minutes.place(x=150, y=90, width=300, height=35)
-        if pre_mins:
-            minutes.insert(0, str(pre_mins))
-        else:
-            placeholder(minutes, "Minutes")
+        hours_e = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        hours_e.place(x=150, y=90, width=140, height=35)
+        placeholder(hours_e, "Hours")
 
-        timer_label = Label(card, text="00:00",
+        minutes_e = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
+        minutes_e.place(x=310, y=90, width=140, height=35)
+        if pre_mins:
+            h, m = divmod(pre_mins, 60)
+            if h > 0:
+                hours_e.delete(0, END)
+                hours_e.insert(0, str(h))
+                hours_e.config(fg="black")
+            minutes_e.delete(0, END)
+            minutes_e.insert(0, str(m))
+            minutes_e.config(fg="black")
+        else:
+            placeholder(minutes_e, "Minutes")
+
+        timer_label = Label(card, text="00:00:00",
                             font=("Segoe UI", 64, "bold"),
                             bg="white", fg="#2e004e")
-        timer_label.place(relx=0.5, y=220, anchor=CENTER)
+        timer_label.place(relx=0.5, y=230, anchor=CENTER)
 
         def update_timer_ui():
             if timer_label.winfo_exists():
-                timer_label.config(text=f"{remaining//60:02}:{remaining%60:02}")
+                h, s = divmod(remaining, 3600)
+                m, s = divmod(s, 60)
+                timer_label.config(text=f"{h:02}:{m:02}:{s:02}")
                 window.after(1000, update_timer_ui)
         update_timer_ui()
 
@@ -844,7 +891,6 @@ def open_app(username):
             nonlocal remaining, timer_running, current_subject, studied_seconds
             if timer_running: return
 
-            # Ensure we have a subject name
             if not current_subject:
                 subj = subject.get()
                 if subj == "Subject" or not subj:
@@ -852,13 +898,21 @@ def open_app(username):
                     return
                 current_subject = subj
 
-            # If no remaining time, load from entries
             if remaining <= 0:
                 try:
-                    remaining = int(minutes.get()) * 60
+                    h_val = hours_e.get()
+                    m_val = minutes_e.get()
+                    h = int(h_val) if h_val != "Hours" and h_val else 0
+                    m = int(m_val) if m_val != "Minutes" and m_val else 0
+
+                    remaining = (h * 3600) + (m * 60)
                     studied_seconds = 0
+                    if remaining <= 0:
+                        messagebox.showerror("Error", "Enter a valid duration")
+                        current_subject = ""
+                        return
                 except:
-                    messagebox.showerror("Error", "Enter valid minutes")
+                    messagebox.showerror("Error", "Enter valid numbers")
                     current_subject = ""
                     return
             timer_running = True
@@ -869,16 +923,27 @@ def open_app(username):
 
         def stop():
             nonlocal timer_running, remaining, current_subject
-            if timer_running or remaining > 0:
+            if timer_running or studied_seconds > 0:
                 timer_running = False
-                save_session()
+                if save_session():
+                    messagebox.showinfo("Timer", "Session stopped and saved.")
+                else:
+                    messagebox.showinfo("Timer", "Session stopped.")
                 remaining = 0
                 current_subject = ""
-                messagebox.showinfo("Timer", "Session stopped and saved.")
+                study_timer()
+
+        def cancel():
+            nonlocal timer_running, remaining, current_subject, studied_seconds
+            timer_running = False
+            remaining = 0
+            studied_seconds = 0
+            current_subject = ""
+            study_timer()
 
         # Add Time Buttons
         add_btn_frame = Frame(card, bg="white")
-        add_btn_frame.place(relx=0.5, y=140, anchor=CENTER)
+        add_btn_frame.place(relx=0.5, y=150, anchor=CENTER)
 
         def inc_time(m):
             nonlocal remaining
@@ -890,17 +955,20 @@ def open_app(username):
         Button(add_btn_frame, text="+1 Hour", command=lambda: inc_time(60), bg="#eee", bd=0, font=("Segoe UI", 9), cursor="hand2").pack(side=LEFT, padx=5)
 
         btn_frame = Frame(card, bg="white")
-        btn_frame.place(relx=0.5, y=350, anchor=CENTER)
+        btn_frame.place(relx=0.5, y=380, anchor=CENTER)
 
         Button(btn_frame, text="Start", font=("Segoe UI", 12, "bold"),
                bg="#2e004e", fg="white", width=10,
-               bd=0, cursor="hand2", command=start).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=start).pack(side=LEFT, padx=5)
         Button(btn_frame, text="Pause", font=("Segoe UI", 12),
                bg="#aaa", fg="white", width=10,
-               bd=0, cursor="hand2", command=pause).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=pause).pack(side=LEFT, padx=5)
         Button(btn_frame, text="Stop", font=("Segoe UI", 12),
                bg="#f44336", fg="white", width=10,
-               bd=0, cursor="hand2", command=stop).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=stop).pack(side=LEFT, padx=5)
+        Button(btn_frame, text="Cancel", font=("Segoe UI", 12),
+               bg="#666", fg="white", width=10,
+               bd=0, cursor="hand2", command=cancel).pack(side=LEFT, padx=5)
 
 
     # =====================================================
@@ -969,7 +1037,7 @@ def open_app(username):
             ax_bar = fig_bar.add_subplot(111)
             dates = sorted(daily_stats.keys())[-7:] # Last 7 days
             minutes = [daily_stats[d] for d in dates]
-            ax_bar.bar(dates, minutes, color="#6a0dad")
+            ax_bar.bar(dates, minutes, color="#7b68ee")
             ax_bar.set_xticks(range(len(dates)))
             ax_bar.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
 
@@ -997,7 +1065,7 @@ def open_app(username):
 
             fig_pie = Figure(figsize=(4, 5), dpi=80)
             ax_pie = fig_pie.add_subplot(111)
-            ax_pie.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#2e004e", "#4b0082", "#6a0dad", "#9370db", "#ba55d3"])
+            ax_pie.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#5d3fd3", "#7b68ee", "#9370db", "#ba55d3", "#e0b0ff"])
             ax_pie.axis('equal')
 
             canvas_pie = FigureCanvasTkAgg(fig_pie, master=pie_container)
