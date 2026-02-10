@@ -37,7 +37,13 @@ def load_data():
         with open(DATA_FILE, "w") as f:
             f.write("{}")
     with open(DATA_FILE, "r") as f:
-        return ast.literal_eval(f.read())
+        content = f.read().strip()
+        if not content:
+            return {}
+        try:
+            return ast.literal_eval(content)
+        except (SyntaxError, ValueError):
+            return {}
 
 
 def save_data(data):
