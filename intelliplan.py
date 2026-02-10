@@ -5,6 +5,8 @@ import os
 import time
 import random
 from datetime import date
+import matplotlib
+matplotlib.use('TkAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -59,11 +61,18 @@ def toggle_fullscreen(event=None):
 window.bind("<F11>", toggle_fullscreen)
 
 # Background shapes for futuristic look
-bg_canvas = Canvas(window, width=1200, height=700, bg="#2e004e", highlightthickness=0)
-bg_canvas.place(x=0, y=0)
-bg_canvas.create_oval(-100, -100, 400, 400, fill="#3d0066", outline="")
-bg_canvas.create_oval(900, 400, 1300, 800, fill="#3d0066", outline="")
-bg_canvas.create_oval(1000, -50, 1150, 100, fill="#4b0082", outline="")
+bg_canvas = Canvas(window, bg="#2e004e", highlightthickness=0)
+bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+
+def update_bg(event=None):
+    bg_canvas.delete("all")
+    w = window.winfo_width()
+    h = window.winfo_height()
+    bg_canvas.create_oval(-100, -100, 400, 400, fill="#3d0066", outline="")
+    bg_canvas.create_oval(w-300, h-300, w+100, h+100, fill="#3d0066", outline="")
+    bg_canvas.create_oval(w-200, -50, w-50, 100, fill="#4b0082", outline="")
+
+window.bind("<Configure>", update_bg)
 
 
 # =========================================================
@@ -266,8 +275,13 @@ def open_app(username):
     Label(profile_frame, text=username, font=("Segoe UI", 12, "bold"), bg="#f0f2f5", fg="#333").pack(side=LEFT, padx=(5, 0))
 
 
+    current_view = "dashboard"
+
     # CLEAR
-    def clear():
+    def clear(view_name=None):
+        nonlocal current_view
+        if view_name:
+            current_view = view_name
         for w in main.winfo_children():
             if w != header:
                 w.destroy()
@@ -304,6 +318,11 @@ def open_app(username):
                     "date": str(date.today())
                 })
                 save_data(data)
+                # Auto refresh view
+                if current_view == "dashboard":
+                    dashboard()
+                elif current_view == "progress":
+                    progress()
             studied_seconds = 0
 
     tick()
@@ -312,7 +331,7 @@ def open_app(username):
     # DASHBOARD
     # =====================================================
     def dashboard():
-        clear()
+        clear("dashboard")
 
         # Top Header Area
         header_card = create_card(main, 900, 200, "#f0f2f5")
@@ -431,14 +450,17 @@ def open_app(username):
             study_data[entry["subject"]] = study_data.get(entry["subject"], 0) + entry["minutes"]
 
         if study_data:
+            chart_container = Frame(chart_card, bg="white")
+            chart_container.place(x=15, y=60, width=400, height=270)
+
             fig = Figure(figsize=(4, 3), dpi=80)
             ax = fig.add_subplot(111)
             ax.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#2e004e", "#4b0082", "#6a0dad", "#9370db", "#ba55d3"])
             ax.axis('equal')
 
-            canvas = FigureCanvasTkAgg(fig, master=chart_card)
+            canvas = FigureCanvasTkAgg(fig, master=chart_container)
             canvas.draw()
-            canvas.get_tk_widget().place(x=15, y=60, width=400, height=270)
+            canvas.get_tk_widget().pack(fill=BOTH, expand=True)
         else:
             Label(chart_card, text="No study data yet. Start studying!", bg="white", font=("Segoe UI", 11)).place(x=20, y=60)
 
@@ -515,7 +537,7 @@ def open_app(username):
         Button(main, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10).pack(pady=10)
 
     def edit_plan():
-        clear()
+        clear("edit_plan")
 
         Label(main, text="Edit Study Plan",
               font=("Segoe UI", 36, "bold"),
@@ -695,7 +717,7 @@ def open_app(username):
         update_view()
 
     def cram_mode():
-        clear()
+        clear("cram_mode")
 
         Label(main, text="Cram Mode", font=("Segoe UI", 32, "bold"), bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
@@ -784,7 +806,7 @@ def open_app(username):
     # =====================================================
     def study_timer(pre_subj=None, pre_mins=None):
         nonlocal timer_running, remaining
-        clear()
+        clear("study_timer")
 
         Label(main, text="Study Timer",
               font=("Segoe UI", 36, "bold"),
@@ -885,7 +907,7 @@ def open_app(username):
     # PROGRESS
     # =====================================================
     def progress():
-        clear()
+        clear("progress")
 
         Label(main, text="Your Progress",
               font=("Segoe UI", 28, "bold"),
@@ -940,16 +962,20 @@ def open_app(username):
             daily_stats[entry["date"]] = daily_stats.get(entry["date"], 0) + entry["minutes"]
 
         if daily_stats:
+            bar_container = Frame(bar_card, bg="white")
+            bar_container.place(x=10, y=50, width=430, height=190)
+
             fig_bar = Figure(figsize=(4, 2.5), dpi=70)
             ax_bar = fig_bar.add_subplot(111)
             dates = sorted(daily_stats.keys())[-7:] # Last 7 days
             minutes = [daily_stats[d] for d in dates]
             ax_bar.bar(dates, minutes, color="#6a0dad")
+            ax_bar.set_xticks(range(len(dates)))
             ax_bar.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
 
-            canvas_bar = FigureCanvasTkAgg(fig_bar, master=bar_card)
+            canvas_bar = FigureCanvasTkAgg(fig_bar, master=bar_container)
             canvas_bar.draw()
-            canvas_bar.get_tk_widget().place(x=10, y=50, width=430, height=190)
+            canvas_bar.get_tk_widget().pack(fill=BOTH, expand=True)
         else:
             Label(bar_card, text="Insufficient data for chart.", bg="white").place(x=20, y=50)
 
@@ -966,14 +992,17 @@ def open_app(username):
             study_data[entry["subject"]] = study_data.get(entry["subject"], 0) + entry["minutes"]
 
         if study_data:
+            pie_container = Frame(pie_card, bg="white")
+            pie_container.place(x=25, y=60, width=400, height=440)
+
             fig_pie = Figure(figsize=(4, 5), dpi=80)
             ax_pie = fig_pie.add_subplot(111)
             ax_pie.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#2e004e", "#4b0082", "#6a0dad", "#9370db", "#ba55d3"])
             ax_pie.axis('equal')
 
-            canvas_pie = FigureCanvasTkAgg(fig_pie, master=pie_card)
+            canvas_pie = FigureCanvasTkAgg(fig_pie, master=pie_container)
             canvas_pie.draw()
-            canvas_pie.get_tk_widget().place(x=25, y=60, width=400, height=440)
+            canvas_pie.get_tk_widget().pack(fill=BOTH, expand=True)
         else:
             Label(pie_card, text="Start studying to see your focus chart!", bg="white").place(x=20, y=50)
 
@@ -1009,11 +1038,11 @@ def open_app(username):
           font=("Segoe UI", 20, "bold")).pack(pady=30)
 
 
-    nav("🏠", "Dashboard", dashboard)
-    nav("📅", "Edit Plan", edit_plan)
-    nav("📚", "Cram Mode", cram_mode)
-    nav("⏱️", "Study Timer", lambda: study_timer())
-    nav("📈", "Progress", progress)
+    nav("🏠", " Dashboard", dashboard)
+    nav("📅", " Edit Plan", edit_plan)
+    nav("📚", " Cram Mode", cram_mode)
+    nav("⏱️", " Study Timer", lambda: study_timer())
+    nav("📈", " Progress", progress)
 
 
     logout_btn = Button(sidebar, text="  🚪  Logout",
