@@ -872,20 +872,21 @@ def open_app(username):
 
         # Use a Frame inside Canvas to host form elements safely
         form_frame = Frame(add_card_ui, bg="white")
-        add_card_ui.create_window(190, 275, window=form_frame, width=340, height=500)
+        # Center the frame within the canvas and set its width, but let height be dynamic
+        add_card_ui.create_window(190, 20, window=form_frame, width=340, anchor="n")
 
-        Label(form_frame, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=(20, 20))
+        Label(form_frame, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=(30, 20))
 
         s_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        s_entry.pack(pady=10, padx=10, fill=X, ipady=8)
+        s_entry.pack(pady=15, padx=20, fill=X, ipady=8)
         placeholder(s_entry, "Subject")
 
         q_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        q_entry.pack(pady=10, padx=10, fill=X, ipady=8)
+        q_entry.pack(pady=15, padx=20, fill=X, ipady=8)
         placeholder(q_entry, "Question")
 
         a_entry = Entry(form_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        a_entry.pack(pady=10, padx=10, fill=X, ipady=8)
+        a_entry.pack(pady=15, padx=20, fill=X, ipady=8)
         placeholder(a_entry, "Answer")
 
         def save_new_card():
@@ -900,7 +901,7 @@ def open_app(username):
             save_data(data)
             cram_mode() # Refresh
 
-        Button(form_frame, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=12, cursor="hand2").pack(pady=30, padx=10, fill=X)
+        Button(form_frame, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 14, "bold"), bd=0, pady=15, cursor="hand2").pack(pady=40, padx=20, fill=X)
 
 
     # =====================================================
