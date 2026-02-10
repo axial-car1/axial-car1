@@ -228,7 +228,7 @@ def sign_up():
 Button(login_frame, text="Sign In",
        bg="#2e004e", fg="white",
        font=("Segoe UI", 14, "bold"),
-       bd=0, width=25, pady=12,
+       bd=0, width=25, pady=12, cursor="hand2",
        command=sign_in).pack(pady=30)
 
 
@@ -274,11 +274,12 @@ def open_app(username):
 
     update_clock()
 
-    profile_frame = Frame(header, bg="#f0f2f5")
-    profile_frame.pack(side=RIGHT, padx=20, pady=10)
+    profile_canvas = Canvas(header, width=180, height=50, bg="#f0f2f5", highlightthickness=0)
+    profile_canvas.pack(side=RIGHT, padx=20, pady=10)
+    draw_rounded_rect(profile_canvas, 0, 0, 180, 50, 25, fill="white")
 
-    Label(profile_frame, text=f"👤", font=("Segoe UI", 16), bg="#f0f2f5", fg="#2e004e").pack(side=LEFT)
-    Label(profile_frame, text=username, font=("Segoe UI", 12, "bold"), bg="#f0f2f5", fg="#333").pack(side=LEFT, padx=(5, 0))
+    profile_canvas.create_text(30, 25, text="👤", font=("Segoe UI", 16), fill="#2e004e")
+    profile_canvas.create_text(100, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#333")
 
 
     current_view = "dashboard"
@@ -479,12 +480,6 @@ def open_app(username):
         container.pack(fill=BOTH, expand=True, padx=20, pady=10)
 
         days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        header_f = Frame(container, bg="#2e004e")
-        header_f.pack(fill=X)
-
-        Label(header_f, text="Time Slot", font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=18).pack(side=LEFT, padx=1, pady=10)
-        for d in days:
-            Label(header_f, text=d, font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=14).pack(side=LEFT, padx=1, pady=10)
 
         canvas = Canvas(container, bg="#f0f2f5", highlightthickness=0)
         scroll_y = Scrollbar(container, orient="vertical", command=canvas.yview)
@@ -497,6 +492,11 @@ def open_app(username):
         canvas.pack(side=LEFT, fill=BOTH, expand=True)
         scroll_y.pack(side=RIGHT, fill=Y)
 
+        # Header Row
+        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=20, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        for j, d in enumerate(days):
+            Label(scrollable_frame, text=d, font=("Segoe UI", 12, "bold"), bg="#2e004e", fg="white", width=16, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
+
         max_subjs = 0
         for d in days:
             max_subjs = max(max_subjs, len(user["timetable"].get(d, [])))
@@ -504,10 +504,6 @@ def open_app(username):
         colors = ["#4a90e2", "#50e3c2", "#b8e986", "#f8e71c", "#f5a623", "#9013fe", "#bd10e0"]
 
         for i in range(max_subjs):
-            row_f = Frame(scrollable_frame, bg="#f0f2f5")
-            row_f.pack(fill=X)
-
-            # Find which day has the slot i to get the time (assuming same slots for all days if they exist)
             time_str = ""
             for d in days:
                 sched = user["timetable"].get(d, [])
@@ -515,12 +511,11 @@ def open_app(username):
                     if isinstance(sched[i], dict):
                         time_str = f"{sched[i]['start']}\n-\n{sched[i]['end']}"
                         break
-
             if not time_str: time_str = "---"
 
-            Label(row_f, text=time_str, font=("Segoe UI", 11), bg="white", width=18, relief=GROOVE, height=5).pack(side=LEFT, padx=1, pady=1)
+            Label(scrollable_frame, text=time_str, font=("Segoe UI", 11), bg="white", width=20, height=5, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
 
-            for d in days:
+            for j, d in enumerate(days):
                 sched = user["timetable"].get(d, [])
                 if i < len(sched):
                     item = sched[i]
@@ -530,10 +525,9 @@ def open_app(username):
                     else:
                         bg = colors[i % len(colors)]
                         txt = str(item)
-                    lbl = Label(row_f, text=txt, font=("Segoe UI", 11, "bold"), bg=bg, fg="white", width=14, height=5, relief=RAISED, wraplength=100)
-                    lbl.pack(side=LEFT, padx=1, pady=1)
+                    Label(scrollable_frame, text=txt, font=("Segoe UI", 11, "bold"), bg=bg, fg="white", width=16, height=5, bd=0, wraplength=120).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
                 else:
-                    Label(row_f, text="", bg="#f0f2f5", width=14, height=5).pack(side=LEFT, padx=1, pady=1)
+                    Label(scrollable_frame, text="", bg="#e0e0e0", width=16, height=5, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
 
         def modify():
             user["timetable"] = {}
@@ -658,13 +652,13 @@ def open_app(username):
             Button(subjects_frame, text="Generate Timetable",
                    bg="#2e004e", fg="white",
                    font=("Segoe UI", 10, "bold"),
-                   bd=0, command=generate).pack(pady=15)
+                   bd=0, cursor="hand2", command=generate).pack(pady=15)
 
 
         Button(content_frame, text="Next",
                bg="#2e004e", fg="white",
                font=("Segoe UI", 10, "bold"),
-               bd=0, command=build_subjects).pack(pady=5)
+               bd=0, cursor="hand2", command=build_subjects).pack(pady=5)
 
 
     # =====================================================
@@ -680,7 +674,7 @@ def open_app(username):
         idx = start_idx
         showing_q = True
 
-        card_frame = Frame(viewer, bg="#f0f7ff", width=500, height=250, bd=1, relief=RAISED)
+        card_frame = Frame(viewer, bg="#f0f7ff", width=500, height=250, bd=1, relief=FLAT)
         card_frame.pack(pady=40)
         card_frame.pack_propagate(False)
 
@@ -716,9 +710,9 @@ def open_app(username):
         btn_box = Frame(viewer, bg="white")
         btn_box.pack()
 
-        Button(btn_box, text="🔄 Flip", command=flip, bg="#2e004e", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
-        Button(btn_box, text="Next →", command=next_c, bg="#aaa", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
-        Button(btn_box, text="🔀 Shuffle", command=shuffle_cards, bg="#6a0dad", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0).pack(side=LEFT, padx=5)
+        Button(btn_box, text="🔄 Flip", command=flip, bg="#2e004e", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0, cursor="hand2").pack(side=LEFT, padx=5)
+        Button(btn_box, text="Next →", command=next_c, bg="#aaa", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0, cursor="hand2").pack(side=LEFT, padx=5)
+        Button(btn_box, text="🔀 Shuffle", command=shuffle_cards, bg="#6a0dad", fg="white", width=10, font=("Segoe UI", 12, "bold"), bd=0, cursor="hand2").pack(side=LEFT, padx=5)
 
         update_view()
 
@@ -890,23 +884,23 @@ def open_app(username):
             nonlocal remaining
             remaining += m * 60
 
-        Button(add_btn_frame, text="+5 Min", command=lambda: inc_time(5), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
-        Button(add_btn_frame, text="+10 Min", command=lambda: inc_time(10), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
-        Button(add_btn_frame, text="+30 Min", command=lambda: inc_time(30), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
-        Button(add_btn_frame, text="+1 Hour", command=lambda: inc_time(60), bg="#eee", bd=0, font=("Segoe UI", 9)).pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+5 Min", command=lambda: inc_time(5), bg="#eee", bd=0, font=("Segoe UI", 9), cursor="hand2").pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+10 Min", command=lambda: inc_time(10), bg="#eee", bd=0, font=("Segoe UI", 9), cursor="hand2").pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+30 Min", command=lambda: inc_time(30), bg="#eee", bd=0, font=("Segoe UI", 9), cursor="hand2").pack(side=LEFT, padx=5)
+        Button(add_btn_frame, text="+1 Hour", command=lambda: inc_time(60), bg="#eee", bd=0, font=("Segoe UI", 9), cursor="hand2").pack(side=LEFT, padx=5)
 
         btn_frame = Frame(card, bg="white")
         btn_frame.place(relx=0.5, y=350, anchor=CENTER)
 
         Button(btn_frame, text="Start", font=("Segoe UI", 12, "bold"),
                bg="#2e004e", fg="white", width=10,
-               bd=0, command=start).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=start).pack(side=LEFT, padx=10)
         Button(btn_frame, text="Pause", font=("Segoe UI", 12),
                bg="#aaa", fg="white", width=10,
-               bd=0, command=pause).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=pause).pack(side=LEFT, padx=10)
         Button(btn_frame, text="Stop", font=("Segoe UI", 12),
                bg="#f44336", fg="white", width=10,
-               bd=0, command=stop).pack(side=LEFT, padx=10)
+               bd=0, cursor="hand2", command=stop).pack(side=LEFT, padx=10)
 
 
     # =====================================================
@@ -1026,7 +1020,7 @@ def open_app(username):
                bg="white", fg="#555",
                font=("Segoe UI", 11),
                bd=0, anchor="w",
-               padx=20, pady=15,
+               padx=20, pady=15, cursor="hand2",
                command=cmd)
         btn.pack(fill=X)
 
@@ -1055,7 +1049,7 @@ def open_app(username):
            bg="white", fg="#f44336",
            font=("Segoe UI", 11, "bold"),
            bd=0, anchor="w",
-           padx=20, pady=15,
+           padx=20, pady=15, cursor="hand2",
            command=logout)
     logout_btn.pack(side=BOTTOM, fill=X, pady=20)
 
