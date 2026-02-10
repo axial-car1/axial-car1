@@ -72,7 +72,7 @@ bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
 
 def update_bg(event=None):
     try:
-        if bg_canvas.winfo_exists():
+        if window.winfo_exists() and bg_canvas.winfo_exists():
             bg_canvas.delete("all")
             w = window.winfo_width()
             h = window.winfo_height()
@@ -278,25 +278,58 @@ def open_app(username):
 
     update_clock()
 
-    profile_card = Canvas(header, width=200, height=50, bg="#f0f2f5", highlightthickness=0)
+    profile_card = Canvas(header, width=180, height=50, bg="#f0f2f5", highlightthickness=0)
     profile_card.pack(side=RIGHT, padx=20, pady=10)
-    draw_rounded_rect(profile_card, 0, 0, 200, 50, 25, fill="white")
+    draw_rounded_rect(profile_card, 0, 0, 180, 50, 25, fill="white")
 
-    profile_card.create_text(35, 25, text="👤", font=("Segoe UI", 18), fill="#2e004e")
-    profile_card.create_line(65, 15, 65, 35, fill="#eee")
-    profile_card.create_text(125, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#555")
+    # Modern circular icon with purple background
+    profile_card.create_oval(10, 8, 42, 40, fill="#2e004e", outline="")
+    profile_card.create_text(26, 24, text="👤", font=("Segoe UI", 14), fill="white")
+
+    profile_card.create_text(105, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#333")
 
 
     current_view = "dashboard"
+
+    # CONTENT AREA
+    content_container = Frame(main, bg="#f0f2f5")
+    content_container.pack(expand=True, fill=BOTH)
+
+    main_canvas = Canvas(content_container, bg="#f0f2f5", highlightthickness=0)
+    main_scrollbar = Scrollbar(content_container, orient=VERTICAL, command=main_canvas.yview)
+    scrollable_content = Frame(main_canvas, bg="#f0f2f5")
+
+    main_canvas.configure(yscrollcommand=main_scrollbar.set)
+    main_scrollbar.pack(side=RIGHT, fill=Y)
+    main_canvas.pack(side=LEFT, fill=BOTH, expand=True)
+
+    canvas_window = main_canvas.create_window((0, 0), window=scrollable_content, anchor="nw")
+
+    def on_content_configure(event):
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+
+    def on_canvas_configure(event):
+        main_canvas.itemconfig(canvas_window, width=event.width)
+
+    scrollable_content.bind("<Configure>", on_content_configure)
+    main_canvas.bind("<Configure>", on_canvas_configure)
+
+    def _on_mousewheel(event):
+        try:
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except:
+            pass
+
+    main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     # CLEAR
     def clear(view_name=None):
         nonlocal current_view
         if view_name:
             current_view = view_name
-        for w in main.winfo_children():
-            if w != header:
-                w.destroy()
+        for w in scrollable_content.winfo_children():
+            w.destroy()
+        main_canvas.yview_moveto(0)
 
 
     # TIMER STATE
@@ -350,7 +383,7 @@ def open_app(username):
         clear("dashboard")
 
         # Top Header Area
-        header_card = create_card(main, 900, 200, "#f0f2f5")
+        header_card = create_card(scrollable_content, 900, 200, "#f0f2f5")
         header_card.pack(pady=20, padx=20)
 
         # Draw blue gradient-like background on card
@@ -377,7 +410,7 @@ def open_app(username):
             widget.bind("<Button-1>", lambda e: study_timer())
 
         # Main Layout Container
-        dash_container = Frame(main, bg="#f0f2f5")
+        dash_container = Frame(scrollable_content, bg="#f0f2f5")
         dash_container.pack(expand=True, fill=BOTH, padx=20)
 
         # LEFT SIDE: Study Plan and Stats
@@ -471,7 +504,7 @@ def open_app(username):
 
             fig = Figure(figsize=(4, 3), dpi=80)
             ax = fig.add_subplot(111)
-            ax.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#5d3fd3", "#7b68ee", "#9370db", "#ba55d3", "#e0b0ff"])
+            ax.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#4db8ff", "#5d3fd3", "#1dd1a1", "#feca57", "#ff6b6b", "#48dbfb"])
             ax.axis('equal')
 
             canvas = FigureCanvasTkAgg(fig, master=chart_container)
@@ -485,7 +518,7 @@ def open_app(username):
     # EDIT PLAN
     # =====================================================
     def show_timetable():
-        container = Frame(main, bg="#f0f2f5")
+        container = Frame(scrollable_content, bg="#f0f2f5")
         container.pack(fill=BOTH, expand=True, padx=20, pady=10)
 
         days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -502,9 +535,9 @@ def open_app(username):
         scroll_y.pack(side=RIGHT, fill=Y)
 
         # Header Row
-        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=15, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 10, "bold"), bg="#2e004e", fg="white", width=12, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         for j, d in enumerate(days):
-            Label(scrollable_frame, text=d, font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=12, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=d, font=("Segoe UI", 10, "bold"), bg="#2e004e", fg="white", width=10, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
 
         max_subjs = 0
         for d in days:
@@ -522,7 +555,7 @@ def open_app(username):
                         break
             if not time_str: time_str = "---"
 
-            Label(scrollable_frame, text=time_str, font=("Segoe UI", 10), bg="white", width=15, height=4, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=time_str, font=("Segoe UI", 9), bg="white", width=12, height=3, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
 
             for j, d in enumerate(days):
                 sched = user["timetable"].get(d, [])
@@ -534,21 +567,21 @@ def open_app(username):
                     else:
                         bg = colors[i % len(colors)]
                         txt = str(item)
-                    Label(scrollable_frame, text=txt, font=("Segoe UI", 10, "bold"), bg=bg, fg="white", width=12, height=4, bd=0, wraplength=100).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text=txt, font=("Segoe UI", 9, "bold"), bg=bg, fg="white", width=10, height=3, bd=0, wraplength=80).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
                 else:
-                    Label(scrollable_frame, text="", bg="#e0e0e0", width=12, height=4, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text="", bg="#e0e0e0", width=10, height=3, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
 
         def modify():
             user["timetable"] = {}
             save_data(data)
             edit_plan()
 
-        Button(main, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10).pack(pady=10)
+        Button(scrollable_content, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10).pack(pady=10)
 
     def edit_plan():
         clear("edit_plan")
 
-        Label(main, text="Study Plan",
+        Label(scrollable_content, text="Study Plan",
               font=("Segoe UI", 32, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
@@ -556,7 +589,7 @@ def open_app(username):
             show_timetable()
             return
 
-        card_canvas = create_card(main, 600, 580)
+        card_canvas = create_card(scrollable_content, 600, 580)
         card_canvas.pack(pady=10)
 
         # Use a Frame inside Canvas to use pack/grid safely
@@ -728,9 +761,9 @@ def open_app(username):
     def cram_mode():
         clear("cram_mode")
 
-        Label(main, text="Cram Mode", font=("Segoe UI", 32, "bold"), bg="#f0f2f5", fg="#2e004e").pack(pady=10)
+        Label(scrollable_content, text="Cram Mode", font=("Segoe UI", 32, "bold"), bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
-        cram_container = Frame(main, bg="#f0f2f5")
+        cram_container = Frame(scrollable_content, bg="#f0f2f5")
         cram_container.pack(fill=BOTH, expand=True, padx=20, pady=10)
 
         # Left side: Flashcard List
@@ -842,11 +875,11 @@ def open_app(username):
         nonlocal timer_running, remaining
         clear("study_timer")
 
-        Label(main, text="Study Timer",
+        Label(scrollable_content, text="Study Timer",
               font=("Segoe UI", 36, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=15)
 
-        card = create_card(main, 600, 480)
+        card = create_card(scrollable_content, 600, 480)
         card.pack(pady=10)
 
         subject = Entry(card, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
@@ -977,18 +1010,18 @@ def open_app(username):
     def progress():
         clear("progress")
 
-        Label(main, text="Your Progress",
+        Label(scrollable_content, text="Your Progress",
               font=("Segoe UI", 28, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=10, padx=40, anchor="w")
 
         # Streak Card
-        streak_card = create_card(main, 920, 80)
+        streak_card = create_card(scrollable_content, 920, 80)
         streak_card.pack(pady=10, padx=20)
         Label(streak_card, text=f"🔥 Your Current Study Streak: {user['streak']} Days!",
               font=("Segoe UI", 18, "bold"), bg="white", fg="#2e004e").place(relx=0.5, rely=0.5, anchor=CENTER)
 
         # Container for analytics
-        stats_container = Frame(main, bg="#f0f2f5")
+        stats_container = Frame(scrollable_content, bg="#f0f2f5")
         stats_container.pack(fill=BOTH, expand=True, padx=20)
 
         # LEFT SIDE: History and Bar Chart
@@ -1037,7 +1070,7 @@ def open_app(username):
             ax_bar = fig_bar.add_subplot(111)
             dates = sorted(daily_stats.keys())[-7:] # Last 7 days
             minutes = [daily_stats[d] for d in dates]
-            ax_bar.bar(dates, minutes, color="#7b68ee")
+            ax_bar.bar(dates, minutes, color="#4db8ff")
             ax_bar.set_xticks(range(len(dates)))
             ax_bar.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
 
@@ -1065,7 +1098,7 @@ def open_app(username):
 
             fig_pie = Figure(figsize=(4, 5), dpi=80)
             ax_pie = fig_pie.add_subplot(111)
-            ax_pie.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#5d3fd3", "#7b68ee", "#9370db", "#ba55d3", "#e0b0ff"])
+            ax_pie.pie(study_data.values(), labels=study_data.keys(), autopct='%1.1f%%', startangle=140, colors=["#4db8ff", "#5d3fd3", "#1dd1a1", "#feca57", "#ff6b6b", "#48dbfb"])
             ax_pie.axis('equal')
 
             canvas_pie = FigureCanvasTkAgg(fig_pie, master=pie_container)
