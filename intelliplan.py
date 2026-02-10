@@ -5,6 +5,7 @@ import os
 import time
 import random
 from datetime import date
+from PIL import Image, ImageTk
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.figure import Figure
@@ -282,9 +283,17 @@ def open_app(username):
     profile_card.pack(side=RIGHT, padx=20, pady=10)
     draw_rounded_rect(profile_card, 0, 0, 180, 50, 25, fill="white")
 
-    # Modern circular icon with purple background
-    profile_card.create_oval(10, 8, 42, 40, fill="#2e004e", outline="")
-    profile_card.create_text(26, 24, text="👤", font=("Segoe UI", 14), fill="white")
+    # Modern circular icon with custom image
+    try:
+        img = Image.open("profile image.png")
+        img = img.resize((32, 32), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+        # Keep a reference to avoid garbage collection
+        profile_card.image = photo
+        profile_card.create_image(26, 25, image=photo)
+    except:
+        profile_card.create_oval(10, 8, 42, 40, fill="#2e004e", outline="")
+        profile_card.create_text(26, 24, text="👤", font=("Segoe UI", 14), fill="white")
 
     profile_card.create_text(105, 25, text=username, font=("Segoe UI", 11, "bold"), fill="#333")
 
@@ -320,7 +329,13 @@ def open_app(username):
         except:
             pass
 
-    main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    def _bind_mouse(event):
+        main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    def _unbind_mouse(event):
+        main_canvas.unbind_all("<MouseWheel>")
+
+    main_canvas.bind("<Enter>", _bind_mouse)
+    main_canvas.bind("<Leave>", _unbind_mouse)
 
     # CLEAR
     def clear(view_name=None):
@@ -339,16 +354,20 @@ def open_app(username):
     studied_seconds = 0
 
     def tick():
-        nonlocal remaining, timer_running, studied_seconds
-        if timer_running and remaining > 0:
-            remaining -= 1
-            studied_seconds += 1
-            if remaining == 0:
-                timer_running = False
-                save_session()
-                current_subject = ""
-                messagebox.showinfo("Timer", "Time is up! Session saved.")
-        window.after(1000, tick)
+        try:
+            if not window.winfo_exists(): return
+            nonlocal remaining, timer_running, studied_seconds
+            if timer_running and remaining > 0:
+                remaining -= 1
+                studied_seconds += 1
+                if remaining == 0:
+                    timer_running = False
+                    save_session()
+                    current_subject = ""
+                    messagebox.showinfo("Timer", "Time is up! Session saved.")
+            window.after(1000, tick)
+        except:
+            pass
 
     def save_session():
         nonlocal studied_seconds
@@ -535,9 +554,9 @@ def open_app(username):
         scroll_y.pack(side=RIGHT, fill=Y)
 
         # Header Row
-        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 10, "bold"), bg="#2e004e", fg="white", width=12, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        Label(scrollable_frame, text="Time Slot", font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=15, height=2).grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         for j, d in enumerate(days):
-            Label(scrollable_frame, text=d, font=("Segoe UI", 10, "bold"), bg="#2e004e", fg="white", width=10, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=d, font=("Segoe UI", 11, "bold"), bg="#2e004e", fg="white", width=12, height=2).grid(row=0, column=j+1, sticky="nsew", padx=1, pady=1)
 
         max_subjs = 0
         for d in days:
@@ -555,7 +574,7 @@ def open_app(username):
                         break
             if not time_str: time_str = "---"
 
-            Label(scrollable_frame, text=time_str, font=("Segoe UI", 9), bg="white", width=12, height=3, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
+            Label(scrollable_frame, text=time_str, font=("Segoe UI", 10), bg="white", width=15, height=4, bd=0).grid(row=i+1, column=0, sticky="nsew", padx=1, pady=1)
 
             for j, d in enumerate(days):
                 sched = user["timetable"].get(d, [])
@@ -567,25 +586,23 @@ def open_app(username):
                     else:
                         bg = colors[i % len(colors)]
                         txt = str(item)
-                    Label(scrollable_frame, text=txt, font=("Segoe UI", 9, "bold"), bg=bg, fg="white", width=10, height=3, bd=0, wraplength=80).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text=txt, font=("Segoe UI", 10, "bold"), bg=bg, fg="white", width=12, height=4, bd=0, wraplength=100).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
                 else:
-                    Label(scrollable_frame, text="", bg="#e0e0e0", width=10, height=3, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
+                    Label(scrollable_frame, text="", bg="#e0e0e0", width=12, height=4, bd=0).grid(row=i+1, column=j+1, sticky="nsew", padx=1, pady=1)
 
         def modify():
-            user["timetable"] = {}
-            save_data(data)
-            edit_plan()
+            edit_plan(force_setup=True)
 
-        Button(scrollable_content, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10).pack(pady=10)
+        Button(scrollable_content, text="Modify Study Plan", command=modify, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=20, pady=10, cursor="hand2").pack(pady=10)
 
-    def edit_plan():
+    def edit_plan(force_setup=False):
         clear("edit_plan")
 
         Label(scrollable_content, text="Study Plan",
               font=("Segoe UI", 32, "bold"),
               bg="#f0f2f5", fg="#2e004e").pack(pady=10)
 
-        if user["timetable"]:
+        if user["timetable"] and not force_setup:
             show_timetable()
             return
 
@@ -596,8 +613,13 @@ def open_app(username):
         content_frame = Frame(card_canvas, bg="white")
         card_canvas.create_window(300, 290, window=content_frame, width=580, height=550)
 
+        if user["timetable"]:
+            def go_back():
+                edit_plan(force_setup=False)
+            Button(content_frame, text="← Back to Timetable", command=go_back, bg="white", fg="#2e004e", bd=0, font=("Segoe UI", 10, "bold"), cursor="hand2").pack(anchor="w", padx=10, pady=10)
+
         Label(content_frame, text="Number of subjects",
-              bg="white", font=("Segoe UI", 12)).pack(pady=(20, 5))
+              bg="white", font=("Segoe UI", 12)).pack(pady=(5, 5))
 
         count_entry = Entry(content_frame, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
         count_entry.pack(pady=5)
@@ -634,6 +656,10 @@ def open_app(username):
             start.pack(pady=5)
             placeholder(start, "Start time (e.g. 16:00)")
 
+            breaks = Entry(subjects_frame, bg="#f0f2f5", bd=0)
+            breaks.pack(pady=5)
+            placeholder(breaks, "Break duration (mins)")
+
 
             def generate():
                 user["subjects"] = [e.get() for e in subject_entries if e.get() != f"Subject {subject_entries.index(e)+1}"]
@@ -644,6 +670,11 @@ def open_app(username):
                     messagebox.showerror("Error", "Invalid minutes")
                     return
                 user["start_time"] = start.get()
+
+                try:
+                    break_dur = int(breaks.get()) if breaks.get() != "Break duration (mins)" else 0
+                except:
+                    break_dur = 0
 
                 days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                 timetable = {}
@@ -681,7 +712,7 @@ def open_app(username):
                             "end": f"{eh%24:02}:{em:02}",
                             "is_hardest": (s == user["hardest"])
                         })
-                        curr_time_m = end_time_m
+                        curr_time_m = end_time_m + break_dur
 
                     timetable[d] = day_schedule
 
@@ -832,25 +863,25 @@ def open_app(username):
                     w.bind("<Leave>", on_lev)
 
         # Right side: Add Flashcard Form
-        right_side = Frame(cram_container, bg="#f0f2f5", width=350)
+        right_side = Frame(cram_container, bg="#f0f2f5", width=400)
         right_side.pack(side=RIGHT, fill=Y, padx=(10, 0))
         right_side.pack_propagate(False)
 
-        add_card_ui = create_card(right_side, 330, 500)
-        add_card_ui.pack(fill=BOTH, expand=True)
+        add_card_ui = create_card(right_side, 380, 550)
+        add_card_ui.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
-        Label(add_card_ui, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=20)
+        Label(add_card_ui, text="Create New Flashcard", font=("Segoe UI", 16, "bold"), bg="white", fg="#2e004e").pack(pady=(30, 20))
 
         s_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        s_entry.pack(pady=10, padx=20, fill=X)
+        s_entry.pack(pady=15, padx=30, fill=X, ipady=8)
         placeholder(s_entry, "Subject")
 
         q_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        q_entry.pack(pady=10, padx=20, fill=X)
+        q_entry.pack(pady=15, padx=30, fill=X, ipady=8)
         placeholder(q_entry, "Question")
 
         a_entry = Entry(add_card_ui, font=("Segoe UI", 12), bg="#f0f2f5", bd=0)
-        a_entry.pack(pady=10, padx=20, fill=X)
+        a_entry.pack(pady=15, padx=30, fill=X, ipady=8)
         placeholder(a_entry, "Answer")
 
         def save_new_card():
@@ -865,7 +896,7 @@ def open_app(username):
             save_data(data)
             cram_mode() # Refresh
 
-        Button(add_card_ui, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=10).pack(pady=30, padx=20, fill=X)
+        Button(add_card_ui, text="Create Flashcard", command=save_new_card, bg="#2e004e", fg="white", font=("Segoe UI", 12, "bold"), bd=0, pady=12, cursor="hand2").pack(pady=40, padx=30, fill=X)
 
 
     # =====================================================
