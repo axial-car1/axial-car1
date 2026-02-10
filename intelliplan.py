@@ -114,7 +114,11 @@ def draw_rounded_rect(canvas, x1, y1, x2, y2, radius, **kwargs):
 
 def create_card(parent, width, height, bg_color="#f0f2f5"):
     canvas = Canvas(parent, width=width, height=height, bg=bg_color, highlightthickness=0)
-    draw_rounded_rect(canvas, 0, 0, width, height, 20, fill="white")
+    def redraw(event):
+        canvas.delete("card_bg")
+        draw_rounded_rect(canvas, 0, 0, event.width, event.height, 20, fill="white", tags="card_bg")
+        canvas.tag_lower("card_bg")
+    canvas.bind("<Configure>", redraw)
     return canvas
 
 # =========================================================
@@ -863,12 +867,12 @@ def open_app(username):
                     w.bind("<Leave>", on_lev)
 
         # Right side: Add Flashcard Form
-        right_side = Frame(cram_container, bg="#f0f2f5", width=400)
+        right_side = Frame(cram_container, bg="#f0f2f5")
         right_side.pack(side=RIGHT, fill=Y, padx=(10, 0))
-        right_side.pack_propagate(False)
 
-        add_card_ui = create_card(right_side, 380, 550)
-        add_card_ui.pack(fill=BOTH, expand=True, padx=10, pady=10)
+        # Increase height to ensure all fields and the button are visible
+        add_card_ui = create_card(right_side, 380, 620)
+        add_card_ui.pack(padx=10, pady=10)
 
         # Use a Frame inside Canvas to host form elements safely
         form_frame = Frame(add_card_ui, bg="white")
@@ -1148,7 +1152,7 @@ def open_app(username):
     # SIDEBAR
     # =====================================================
     def logout():
-        messagebox.showinfo("Goodbye", ":)")
+        messagebox.showinfo(":)", ":)")
         window.destroy()
 
 
